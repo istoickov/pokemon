@@ -2,6 +2,36 @@
 
 A Django REST API for simulating Pokémon battles with data from PokeAPI.co. Features include battle simulation, relational database models, Redis caching, and comprehensive Swagger documentation.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Features](#features)
+- [Quickstart (Docker)](#quickstart-docker)
+- [Local Development](#local-development-without-docker)
+- [API Endpoints](#api-endpoints)
+- [Data Model](#data-model)
+- [Battle Algorithm](#battle-algorithm-v1)
+- [Architecture](#architecture)
+- [Development Workflow](#development-workflow)
+- [Development Tools](#development-tools)
+- [Testing](#testing)
+- [Environment Variables](#environment-variables)
+- [Error Handling](#error-handling)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+## Prerequisites
+
+- **Python**: 3.12+
+- **Docker**: 20.10+ (if using Docker setup)
+- **Docker Compose**: 2.0+ (if using Docker setup)
+
+For local development without Docker:
+- **PostgreSQL**: 16+
+- **Redis**: 7+
+
 ## Features
 
 - 🎮 **Battle Simulation**: Simulate battles between two Pokémon with algorithm-based winner determination
@@ -16,6 +46,27 @@ A Django REST API for simulating Pokémon battles with data from PokeAPI.co. Fea
 
 ## Quickstart (Docker)
 
+1. **Create environment file** - Create a `.env` file in the project root with the following content:
+```bash
+# Database
+POSTGRES_DB=pokemon
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Redis
+REDIS_URL=redis://redis:6379/1
+
+# Django
+DJANGO_DEBUG=1
+DJANGO_ALLOWED_HOSTS=*
+DJANGO_LOG_LEVEL=INFO
+```
+
+> **Note:** You can customize these values as needed. For local development without Docker, change `POSTGRES_HOST=db` to `POSTGRES_HOST=localhost`.
+
+2. **Start the stack:**
 ```bash
 # Start the full stack (Django + Postgres + Redis)
 make up
@@ -29,7 +80,20 @@ docker compose up --build
 - Swagger UI: http://localhost:8000/api/docs/
 - ReDoc: http://localhost:8000/api/redoc/
 
+3. **Try it out:**
+```bash
+# Simulate a battle between Pikachu and Charizard
+curl -X POST http://localhost:8000/api/battles/battle/ \
+  -H "Content-Type: application/json" \
+  -d '{"attacker": "pikachu", "defender": "charizard"}'
+
+# View battle history
+curl http://localhost:8000/api/battles/
+```
+
 ## Local Development (without Docker)
+
+**Note:** Requires PostgreSQL and Redis running locally.
 
 ```bash
 # Create virtual environment
@@ -38,6 +102,9 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Install dev dependencies (optional, for linting/type checking)
+pip install -r dev-requirements.txt
 
 # Set environment variables
 export POSTGRES_HOST=localhost
@@ -208,41 +275,85 @@ This leverages the PokeAPI `stat.change` field as suggested in requirements.
 - PokeAPI responses cached for 1 hour
 - Cache key format: `pokeapi:{pokemon_name}`
 
+## Development Workflow
+
+Recommended workflow for making changes:
+
+1. **Set up development environment:**
+```bash
+make install-dev  # Installs all dependencies including dev tools
+```
+
+2. **Make your changes** to the code
+
+3. **Run quality checks:**
+```bash
+make ruff-check    # Check for linting issues
+make ruff-format   # Format code
+make mypy          # Type check
+python manage.py test  # Run tests
+```
+
+4. **Test locally:**
+```bash
+make up  # Start Docker stack
+# Or for local dev:
+python manage.py runserver
+```
+
+5. **Verify changes** via Swagger UI at http://localhost:8000/api/docs/
+
 ## Development Tools
+
+### Dev Dependencies
+
+The `dev-requirements.txt` file includes:
+- **ruff** (0.6.9) - Fast Python linter and formatter
+- **mypy** (1.13.0) - Static type checker
+- **django-stubs** (5.1.1) - Type stubs for Django
+- **types-requests** - Type stubs for requests library
+
+Install with: `pip install -r dev-requirements.txt`
 
 ### Makefile Commands
 
 ```bash
 # Install dev dependencies
-make install-dev
+make install-dev      # Install both requirements.txt and dev-requirements.txt
 
 # Linting and formatting
-make ruff-check      # Check code quality
-make ruff-fix        # Auto-fix issues
+make ruff-check       # Check code quality issues
+make ruff-fix         # Auto-fix linting issues
+make ruff-format      # Format code with Ruff
 
 # Type checking
-make mypy            # Run type checker
+make mypy             # Run MyPy type checker
 
 # Docker
-make up              # Start stack
-make build           # Build images
-make down            # Stop stack
-make logs            # View logs
+make up               # Start full stack (Django + Postgres + Redis)
+make build            # Build Docker images
+make down             # Stop and remove containers
+make logs             # View container logs (follow mode)
 ```
 
 ### Configuration Files
 - `pyproject.toml` - Ruff and MyPy configuration
 - `.env` - Environment variables for Docker
 - `docker-compose.yml` - Multi-container setup
+- `requirements.txt` - Production dependencies
+- `dev-requirements.txt` - Development tools
 
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests with Django's test runner
 python manage.py test
 
-# Run with coverage (if installed)
-pytest --cov=battle
+# Run specific test module
+python manage.py test battle.tests
+
+# Run with verbose output
+python manage.py test --verbosity=2
 ```
 
 Tests cover:
@@ -250,6 +361,14 @@ Tests cover:
 - API endpoints
 - Service layer
 - Pagination
+- Error handling
+
+**Note:** The project uses Django's built-in test framework. To add coverage reporting, install `coverage` and run:
+```bash
+pip install coverage
+coverage run --source='.' manage.py test
+coverage report
+```
 
 ## Environment Variables
 
@@ -293,16 +412,84 @@ pokemon/
 │   ├── dto.py             # Data transfer objects
 │   ├── paginator.py       # Pagination logic
 │   ├── logging_utils.py   # Logging helpers
+│   ├── constants.py       # Application constants
 │   └── tests.py           # Unit tests
 ├── config/                # Django settings
 │   ├── settings.py
 │   └── urls.py
 ├── requirements.txt       # Python dependencies
 ├── dev-requirements.txt   # Dev tools
+├── pyproject.toml         # Tool configurations
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
 └── README.md
+```
+
+## Troubleshooting
+
+### Docker Issues
+
+**Problem:** `Cannot connect to the Docker daemon`
+```bash
+# Solution: Ensure Docker Desktop is running
+# macOS: Open Docker Desktop app
+# Linux: sudo systemctl start docker
+```
+
+**Problem:** Port already in use (8000, 5432, or 6379)
+```bash
+# Solution: Stop conflicting services or change ports in docker-compose.yml
+docker ps  # Check what's running
+lsof -i :8000  # See what's using port 8000
+```
+
+**Problem:** Database connection errors
+```bash
+# Solution: Recreate containers with fresh volumes
+make down
+docker volume rm pokemon_pgdata
+make up
+```
+
+### Local Development Issues
+
+**Problem:** `ModuleNotFoundError`
+```bash
+# Solution: Ensure virtual environment is activated and dependencies installed
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Problem:** Redis connection error
+```bash
+# Solution: Ensure Redis is running locally
+# macOS: brew services start redis
+# Linux: sudo systemctl start redis
+redis-cli ping  # Should return "PONG"
+```
+
+**Problem:** PostgreSQL connection error
+```bash
+# Solution: Verify PostgreSQL is running and credentials match
+# Check connection with:
+psql -h localhost -U postgres -d pokemon
+```
+
+### API Issues
+
+**Problem:** 404 when fetching Pokémon
+```bash
+# Solution: Ensure Pokémon name is lowercase and correct
+# Valid: "pikachu", "charizard"
+# Invalid: "Pikachu", "charzard"
+```
+
+**Problem:** PokeAPI rate limiting
+```bash
+# Solution: Redis caching should prevent this. Check Redis is working:
+docker compose logs redis  # If using Docker
+redis-cli GET pokeapi:pikachu  # Check if data is cached
 ```
 
 ## License
