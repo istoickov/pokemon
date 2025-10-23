@@ -1,0 +1,33 @@
+[tool.ruff]
+line-length = 100
+exclude = [
+	".venv",
+	"migrations",
+]
+
+[tool.ruff.lint]
+select = [
+	"E",
+	"F",
+	"I",
+	"W",
+	"B",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["battle", "config"]
+force-single-line = false
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = false
+disallow_untyped_defs = false
+ignore_missing_imports = true
+warn_unused_ignores = false
+warn_redundant_casts = true
+warn_unused_configs = true
+exclude = ["migrations/", "tests.py"]
+
+[[tool.mypy.overrides]]
+module = ["battle.models", "battle.admin"]
+ignore_errors = true
